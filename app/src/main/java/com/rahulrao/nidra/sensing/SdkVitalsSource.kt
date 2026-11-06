@@ -96,6 +96,7 @@ class SdkVitalsSource : VitalsSource {
     }
 
     override suspend fun start() {
+        check(BuildConfig.PRESAGE_API_KEY.isNotBlank()) { "This build has no Presage API key." }
         eyeOpenness.clear()
         blinks = 0
         blinkOn = false

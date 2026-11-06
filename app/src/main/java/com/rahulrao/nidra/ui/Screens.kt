@@ -55,7 +55,7 @@ fun ConsentScreen(onAgree: () -> Unit) {
         Card {
             Body("What happens to your data")
             Muted("Readings are worked out on this phone. Nothing is recorded: no video, no photos.")
-            Muted("Only the summary numbers are saved, in this app's private storage, until you delete them.")
+            Muted("Only summary numbers and any list you write are saved, in this app's private storage, until you delete them.")
             Muted("Nidra has no account and sends your readings nowhere.")
             Muted("The Presage SDK contacts its server only to check the app's key. Its usage reporting is switched off.")
         }
@@ -338,7 +338,7 @@ fun HistoryScreen(app: NidraController, onBack: () -> Unit) {
                             bar(night.nightPercent, size.width * 0.08f, palette.primary)
                             night.morning?.let { bar(it, size.width * 0.54f, palette.accent) }
                         }
-                        Text(dayLabel(night.id), color = palette.muted, fontSize = 12.sp)
+                        Text(dayLabel(night.id), color = palette.muted, fontSize = 11.sp, maxLines = 1)
                     }
                 }
             }
@@ -386,7 +386,7 @@ fun SettingsScreen(app: NidraController, nowSeconds: () -> Long, onBack: () -> U
         }
         Card {
             Body("Your data")
-            Muted("Saved only on this phone: evening summaries, morning ratings, and your to-do list. No video, photos or face data. Readings aren't uploaded, and the SDK's usage reporting is off.")
+            Muted("Saved only on this phone: evening summary numbers, morning ratings, and your to-do list. No video, photos or face images. Readings aren't uploaded, and the SDK's usage reporting is off.")
         }
         QuietButton(
             if (confirm == 0) "Delete all my data" else "Tap again to delete everything",
@@ -405,6 +405,6 @@ fun SettingsScreen(app: NidraController, nowSeconds: () -> Long, onBack: () -> U
 }
 
 private fun dayLabel(epochSeconds: Long): String =
-    DateTimeFormatter.ofPattern("dd", Locale.ENGLISH).format(
+    DateTimeFormatter.ofPattern("dd-MMM", Locale.ENGLISH).format(
         Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()),
     )

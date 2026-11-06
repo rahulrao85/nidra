@@ -1,11 +1,14 @@
 package com.rahulrao.nidra
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,13 +44,29 @@ private sealed interface Screen {
 }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var app: NidraController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        val app = NidraController(applicationContext)
+        app = NidraController(applicationContext)
         setContent {
-            NidraTheme(dark = app.dark) { NidraApp(app) }
+            val dark = app.dark
+            DisposableEffect(dark) {
+                val style = if (dark) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose { }
+            }
+            NidraTheme(dark = dark) { NidraApp(app) }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        app.onPaused()
     }
 }
 
@@ -93,6 +112,10 @@ private fun NidraApp(app: NidraController) {
                     screen = Screen.NoScore
                 }
             },
+            onFailed = {
+                retryIsRecheck = false
+                screen = Screen.NoScore
+            },
             onCancel = { screen = Screen.Home },
         )
 
@@ -108,6 +131,10 @@ private fun NidraApp(app: NidraController) {
                 } else {
                     screen = Screen.NoScore
                 }
+            },
+            onFailed = {
+                retryIsRecheck = true
+                screen = Screen.NoScore
             },
             onCancel = { screen = Screen.Home },
         )

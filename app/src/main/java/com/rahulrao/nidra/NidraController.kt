@@ -2,6 +2,7 @@ package com.rahulrao.nidra
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.rahulrao.nidra.data.ArtTheme
@@ -15,6 +16,8 @@ import com.rahulrao.nidra.scoring.Vitals
 import com.rahulrao.nidra.sensing.SdkVitalsSource
 import com.rahulrao.nidra.sensing.SimulatedVitalsSource
 import com.rahulrao.nidra.sensing.VitalsSource
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 
 /** App state: settings, saved evenings, and the routine in progress. */
 class NidraController(context: Context) {
@@ -30,7 +33,22 @@ class NidraController(context: Context) {
     var evenings by mutableStateOf(store.load())
         private set
 
+    /** Counts each time the app leaves the screen, so a running check can cancel itself. */
+    var pauses by mutableIntStateOf(0)
+        private set
+
+    private val scope = MainScope()
+
     val hasKey: Boolean get() = BuildConfig.SIMULATE || BuildConfig.PRESAGE_API_KEY.isNotBlank()
+
+    fun onPaused() {
+        pauses++
+    }
+
+    /** Runs outside any screen, so the camera still stops when the screen goes away. */
+    fun stopCamera() {
+        scope.launch { source.stop() }
+    }
 
     /** Tonight's routine, once the first check has finished. */
     val tonight: Evening? get() = evenings.lastOrNull()

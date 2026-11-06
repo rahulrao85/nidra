@@ -28,6 +28,7 @@ class SimulatedVitalsSource : VitalsSource {
     override fun attachPreview(view: PreviewView) = Unit
 
     override suspend fun start() {
+        job?.cancel()
         val calmer = session * 4.0
         session++
         state.value = LiveSample(running = true, code = "OK")

@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +46,6 @@ import com.rahulrao.nidra.scoring.Scoring
 import com.rahulrao.nidra.scoring.Vitals
 import com.rahulrao.nidra.sensing.LiveSample
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private const val FRAMING_SECONDS = 3
 
@@ -61,40 +59,52 @@ fun CheckScreen(
     title: String,
     usualPulse: Double?,
     onFinished: (Measurement) -> Unit,
+    onFailed: () -> Unit,
     onCancel: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val live by app.source.live.collectAsState()
     var seconds by remember { mutableIntStateOf(0) }
-    var started by remember { mutableStateOf(false) }
+    val needsPermission = remember {
+        app.source.usesCamera &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+    }
+    var started by remember { mutableStateOf(!needsPermission) }
     var denied by remember { mutableStateOf(false) }
     var anchorPulse by remember { mutableStateOf(usualPulse) }
+    val pausesAtStart = remember { app.pauses }
 
-    val needsPermission = app.source.usesCamera &&
-        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) started = true else denied = true
     }
 
     KeepScreenOn()
     LaunchedEffect(Unit) {
-        if (needsPermission) permission.launch(Manifest.permission.CAMERA) else started = true
+        if (needsPermission) permission.launch(Manifest.permission.CAMERA)
+    }
+    // The camera never runs in the background: leaving the app cancels the check.
+    LaunchedEffect(app.pauses) {
+        if (app.pauses != pausesAtStart && started) onCancel()
     }
     DisposableEffect(Unit) {
-        onDispose { scope.launch { app.source.stop() } }
+        onDispose { app.stopCamera() }
     }
 
-    LaunchedEffect(started) {
-        if (!started) return@LaunchedEffect
-        runCatching { app.source.start() }
+    val shouldRun = started
+    LaunchedEffect(shouldRun) {
+        if (!shouldRun) return@LaunchedEffect
+        val failure = runCatching { app.source.start() }.exceptionOrNull()
+        if (failure != null) {
+            onFailed()
+            return@LaunchedEffect
+        }
         val pulses = ArrayList<Double>()
         var okSeconds = 0
         var counted = 0
         val total = app.source.minSeconds
         // Wait for the camera to come up before the clock starts.
         var waited = 0
-        while (!app.source.live.value.running && waited < 150) {
+        while (!app.source.live.value.running && app.source.live.value.error == null && waited < 150) {
             delay(100)
             waited++
         }
@@ -102,6 +112,11 @@ fun CheckScreen(
             delay(1000)
             seconds++
             val sample = app.source.live.value
+            if (sample.error != null) {
+                app.source.stop()
+                onFailed()
+                return@LaunchedEffect
+            }
             counted++
             if (sample.code == "OK") okSeconds++
             if (seconds == FRAMING_SECONDS) playTone(context)
