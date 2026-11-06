@@ -1,0 +1,3 @@
+# Copy this file to local.properties and add your free key from
+# https://physiology.presagetech.com/auth/register
+PRESAGE_API_KEY=your-key-here

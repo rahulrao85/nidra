@@ -1,0 +1,241 @@
+package com.rahulrao.nidra.ui
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.rahulrao.nidra.NidraController
+import com.rahulrao.nidra.scoring.Measurement
+import com.rahulrao.nidra.scoring.Scoring
+import com.rahulrao.nidra.scoring.Vitals
+import com.rahulrao.nidra.sensing.LiveSample
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private const val FRAMING_SECONDS = 3
+
+/**
+ * The 75-second camera check. It shows the camera for a few seconds so you can frame yourself,
+ * plays a tone, and you close your eyes until the second tone.
+ */
+@Composable
+fun CheckScreen(
+    app: NidraController,
+    title: String,
+    usualPulse: Double?,
+    onFinished: (Measurement) -> Unit,
+    onCancel: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val live by app.source.live.collectAsState()
+    var seconds by remember { mutableIntStateOf(0) }
+    var started by remember { mutableStateOf(false) }
+    var denied by remember { mutableStateOf(false) }
+    var anchorPulse by remember { mutableStateOf(usualPulse) }
+
+    val needsPermission = app.source.usesCamera &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) started = true else denied = true
+    }
+
+    KeepScreenOn()
+    LaunchedEffect(Unit) {
+        if (needsPermission) permission.launch(Manifest.permission.CAMERA) else started = true
+    }
+    DisposableEffect(Unit) {
+        onDispose { scope.launch { app.source.stop() } }
+    }
+
+    LaunchedEffect(started) {
+        if (!started) return@LaunchedEffect
+        runCatching { app.source.start() }
+        val pulses = ArrayList<Double>()
+        var okSeconds = 0
+        var counted = 0
+        val total = app.source.minSeconds
+        // Wait for the camera to come up before the clock starts.
+        var waited = 0
+        while (!app.source.live.value.running && waited < 150) {
+            delay(100)
+            waited++
+        }
+        while (true) {
+            delay(1000)
+            seconds++
+            val sample = app.source.live.value
+            counted++
+            if (sample.code == "OK") okSeconds++
+            if (seconds == FRAMING_SECONDS) playTone(context)
+            if (sample.pulseConfidence >= Scoring.MIN_PULSE_CONFIDENCE) {
+                pulses += sample.pulse
+                if (anchorPulse == null) anchorPulse = sample.pulse
+            }
+            val hrvReady = sample.hrvConfidence > 0
+            if ((seconds >= total && hrvReady) || seconds >= app.source.maxSeconds) break
+        }
+        val sample = app.source.live.value
+        val eyes = app.source.eyeSummary()
+        app.source.stop()
+        playTone(context)
+        vibrate(context)
+        val recent = pulses.takeLast(15)
+        onFinished(
+            Measurement(
+                vitals = Vitals(
+                    pulse = if (recent.isEmpty()) 0.0 else recent.average(),
+                    rmssd = sample.rmssd,
+                    stress = sample.stress,
+                ),
+                pulseConfidence = sample.pulseConfidence,
+                hrvConfidence = sample.hrvConfidence,
+                okFraction = okSeconds.toDouble() / counted.coerceAtLeast(1),
+                eyesClosedPercent = eyes.closedPercent,
+                blinks = eyes.blinks,
+            ),
+        )
+    }
+
+    val palette = LocalPalette.current
+    val percent = livePercent(live, anchorPulse)
+    val left = (app.source.minSeconds - seconds).coerceAtLeast(0)
+
+    Page(scroll = true) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Title(title, Modifier.weight(1f))
+            if (app.source.usesCamera) {
+                Dot(palette.danger)
+                Muted("Camera on")
+            } else {
+                Muted("Simulated")
+            }
+        }
+
+        if (app.source.usesCamera) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .size(150.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(palette.surface),
+            ) {
+                AndroidView(
+                    modifier = Modifier.size(150.dp),
+                    factory = { ctx ->
+                        PreviewView(ctx).apply {
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                            contentDescription = "Camera preview, not recorded"
+                            app.source.attachPreview(this)
+                        }
+                    },
+                )
+            }
+        }
+
+        ReadinessArt(app.theme, percent, scale = if (app.source.usesCamera) 0.7f else 1f)
+        BigNumber(if (live.running || seconds > 0) "${Scoring.roundToFive(percent.toDouble())}%" else "--")
+        ReadinessSlider(percent)
+
+        Text(
+            when {
+                denied -> "Nidra needs the camera for this check."
+                !live.running && seconds == 0 -> "Starting the camera"
+                seconds < FRAMING_SECONDS -> "Keep your face and upper chest in view"
+                else -> "Close your eyes until the tone"
+            },
+            modifier = Modifier.fillMaxWidth(),
+            color = palette.text,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        if (seconds > 0) {
+            Muted(
+                if (left > 0) "$left seconds left" else "Finishing the reading",
+                Modifier.fillMaxWidth(),
+                TextAlign.Center,
+            )
+        }
+        live.hint?.takeIf { live.code != "OK" && live.code != "--" }?.let {
+            Muted(it, Modifier.fillMaxWidth(), TextAlign.Center)
+        }
+        live.error?.let { Body(it, Modifier.fillMaxWidth(), palette.danger, TextAlign.Center) }
+
+        Spacer(Modifier.weight(1f))
+        QuietButton("Cancel", onClick = onCancel)
+    }
+}
+
+/** A running estimate from whatever has arrived so far. Pulse comes first, HRV near the end. */
+private fun livePercent(sample: LiveSample, anchorPulse: Double?): Float {
+    if (anchorPulse == null || sample.pulse <= 0) return 50f
+    val body = Scoring.body(sample.pulse, anchorPulse)
+    return body.toFloat()
+}
+
+@Composable
+private fun KeepScreenOn() {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val window = (context as? Activity)?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+}
+
+private fun playTone(context: Context) {
+    runCatching {
+        val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+        tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
+    }
+}
+
+private fun vibrate(context: Context) {
+    runCatching {
+        val vibrator = ContextCompat.getSystemService(context, Vibrator::class.java)
+        vibrator?.vibrate(VibrationEffect.createOneShot(250, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+}
