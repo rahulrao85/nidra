@@ -25,6 +25,8 @@ class SimulatedVitalsSource : VitalsSource {
     private var job: Job? = null
     private var session = 0
 
+    override var backCamera = false
+
     override fun attachPreview(view: PreviewView) = Unit
 
     override suspend fun start() {

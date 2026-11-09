@@ -29,6 +29,9 @@ interface VitalsSource {
     /** False when the camera is replaced by made-up readings for testing screens. */
     val usesCamera: Boolean
 
+    /** Front camera by default; back when the phone stands with its back towards you. */
+    var backCamera: Boolean
+
     fun attachPreview(view: PreviewView)
     suspend fun start()
     suspend fun stop()

@@ -2,7 +2,7 @@
 
 Most sleep trackers tell you how you slept once the night is over. Nidra asks a different question: how ready are you for sleep right now, while you can still do something about it?
 
-Nidra is an Android app. Put your phone on a stand, close your eyes for 75 seconds, and the front camera reads your pulse and heart rate variability. You get one number, Sleep Readiness from 0 to 100%, and one thing to try tonight.
+Nidra is an Android app. Put your phone on a stand, close your eyes for 75 seconds, and the camera reads your pulse and heart rate variability. You get one number, Sleep Readiness from 0 to 100%, and one thing to try tonight.
 
 Built for the [Presage SmartSpectra SDK Challenge](https://dev.to/challenges/presage-2026-11-04) on DEV.
 
@@ -10,7 +10,7 @@ Built for the [Presage SmartSpectra SDK Challenge](https://dev.to/challenges/pre
 
 ## The routine
 
-1. **Check, 75 seconds.** A tone tells you to close your eyes, and a second tone tells you it's done.
+1. **Check, 75 seconds.** A tone tells you to close your eyes. At the end, one beep means it scored; three low beeps and a long buzz mean it couldn't, so open your eyes. Tones play at alarm volume, so they work on silent.
 2. **One suggestion.** The lower of two small sliders picks it: slow breathing if Body is lower, a to-do list if Calm is lower.
 3. **Re-check.** A second reading shows the before and after.
 4. **Morning.** You drag one slider to say how rested you feel.
@@ -45,9 +45,13 @@ Breathing rate isn't used. In my testing it stayed unreliable on a stand, in roo
 
 Blinks and eye closure are recorded as summary numbers but aren't part of the score yet.
 
+**Closed eyes and `FACE_NOT_FORWARD`.** With my eyes closed, the SDK reported `FACE_NOT_FORWARD` for 61 of 75 seconds while pulse confidence was 100 and HRV confidence 95. My first gate demanded 70% `OK` seconds, so it threw away excellent readings. Nidra now treats `FACE_NOT_FORWARD` as a good view; pulse and HRV confidence still have to pass, and codes like no face, more than one face or too dark still refuse a score.
+
+**Camera choice.** Settings has Front or Back camera, and Upright or Upside down for phones on a stand. The back camera is sharper; with it, the screen faces away, which is why the tones matter.
+
 ## Run it
 
-You need Android Studio, a physical Android phone (Android 9 or later) with a front camera, and a free Presage API key.
+You need Android Studio, a physical Android phone (Android 9 or later) and a free Presage API key.
 
 1. Get a key at the [Presage developer portal](https://physiology.presagetech.com/auth/register).
 2. Clone this repo and copy the example properties file:

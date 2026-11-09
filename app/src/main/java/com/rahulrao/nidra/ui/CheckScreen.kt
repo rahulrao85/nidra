@@ -5,7 +5,11 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.media.AudioAttributes
 import android.media.ToneGenerator
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.view.WindowManager
@@ -32,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +53,13 @@ import com.rahulrao.nidra.sensing.LiveSample
 import kotlinx.coroutines.delay
 
 private const val FRAMING_SECONDS = 3
+
+/**
+ * Validation codes that still give a good reading. The SDK reports FACE_NOT_FORWARD whenever the
+ * eyes are closed (10-Nov-2026: 61 of 75 s with pulse confidence 100 and HRV 95), and eyes closed
+ * is the whole point of the check. Pulse and HRV confidence still have to pass on their own.
+ */
+private val GOOD_VIEW = setOf("OK", "FACE_NOT_FORWARD")
 
 /**
  * The 75-second camera check. It shows the camera for a few seconds so you can frame yourself,
@@ -95,12 +107,14 @@ fun CheckScreen(
         if (!shouldRun) return@LaunchedEffect
         val failure = runCatching { app.source.start() }.exceptionOrNull()
         if (failure != null) {
+            playErrorTone(context)
             onFailed()
             return@LaunchedEffect
         }
         val pulses = ArrayList<Double>()
         var okSeconds = 0
         var counted = 0
+        val codes = HashMap<String, Int>()
         val total = app.source.minSeconds
         // Wait for the camera to come up before the clock starts.
         var waited = 0
@@ -114,11 +128,14 @@ fun CheckScreen(
             val sample = app.source.live.value
             if (sample.error != null) {
                 app.source.stop()
+                playErrorTone(context)
                 onFailed()
                 return@LaunchedEffect
             }
             counted++
-            if (sample.code == "OK") okSeconds++
+            val goodView = sample.code in GOOD_VIEW
+            if (goodView) okSeconds++
+            codes[sample.code] = (codes[sample.code] ?: 0) + 1
             if (seconds == FRAMING_SECONDS) playTone(context)
             if (sample.pulseConfidence >= Scoring.MIN_PULSE_CONFIDENCE) {
                 pulses += sample.pulse
@@ -130,10 +147,8 @@ fun CheckScreen(
         val sample = app.source.live.value
         val eyes = app.source.eyeSummary()
         app.source.stop()
-        playTone(context)
-        vibrate(context)
         val recent = pulses.takeLast(15)
-        onFinished(
+        val measurement =
             Measurement(
                 vitals = Vitals(
                     pulse = if (recent.isEmpty()) 0.0 else recent.average(),
@@ -145,8 +160,21 @@ fun CheckScreen(
                 okFraction = okSeconds.toDouble() / counted.coerceAtLeast(1),
                 eyesClosedPercent = eyes.closedPercent,
                 blinks = eyes.blinks,
-            ),
+            )
+        // Numbers only, for working out why a check was refused. Nothing here identifies a face.
+        Log.i(
+            "Nidra",
+            "check end usable=${Scoring.isUsable(measurement)} pulseConf=${measurement.pulseConfidence} " +
+                "hrvConf=${measurement.hrvConfidence} ok=${"%.2f".format(measurement.okFraction)} " +
+                "eyesClosed=${measurement.eyesClosedPercent} seconds=$seconds codes=$codes",
         )
+        if (Scoring.isUsable(measurement)) {
+            playTone(context)
+            vibrate(context)
+        } else {
+            playErrorTone(context)
+        }
+        onFinished(measurement)
     }
 
     val palette = LocalPalette.current
@@ -177,7 +205,8 @@ fun CheckScreen(
                     .background(palette.surface),
             ) {
                 AndroidView(
-                    modifier = Modifier.size(150.dp),
+                    // Turns the preview the right way up when the phone stands upside down.
+                    modifier = Modifier.size(150.dp).graphicsLayer { rotationZ = if (app.flipPreview) 180f else 0f },
                     factory = { ctx ->
                         PreviewView(ctx).apply {
                             scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -241,16 +270,38 @@ private fun KeepScreenOn() {
     }
 }
 
+/**
+ * The start and end tones use the alarm volume, so they sound even when media is low or the
+ * phone is on mute. The generator is kept until the tone ends; a dropped one can go silent.
+ */
 private fun playTone(context: Context) {
     runCatching {
-        val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
-        tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
+        val tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+        tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
+        Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 1000)
+    }
+}
+
+/** Three low beeps and a long buzz: no score this time, open your eyes. */
+private fun playErrorTone(context: Context) {
+    runCatching {
+        val tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+        tone.startTone(ToneGenerator.TONE_CDMA_LOW_SSL, 1200)
+        Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 1800)
+    }
+    runCatching {
+        val vibrator = ContextCompat.getSystemService(context, Vibrator::class.java)
+        val alarm = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+        @Suppress("DEPRECATION")
+        vibrator?.vibrate(VibrationEffect.createOneShot(900, VibrationEffect.DEFAULT_AMPLITUDE), alarm)
     }
 }
 
 private fun vibrate(context: Context) {
     runCatching {
         val vibrator = ContextCompat.getSystemService(context, Vibrator::class.java)
-        vibrator?.vibrate(VibrationEffect.createOneShot(250, VibrationEffect.DEFAULT_AMPLITUDE))
+        val alarm = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+        @Suppress("DEPRECATION")
+        vibrator?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE), alarm)
     }
 }

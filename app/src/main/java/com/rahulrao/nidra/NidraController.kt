@@ -22,13 +22,18 @@ import kotlinx.coroutines.launch
 /** App state: settings, saved evenings, and the routine in progress. */
 class NidraController(context: Context) {
     private val store = Store(context)
-    val source: VitalsSource = if (BuildConfig.SIMULATE) SimulatedVitalsSource() else SdkVitalsSource()
+    val source: VitalsSource = (if (BuildConfig.SIMULATE) SimulatedVitalsSource() else SdkVitalsSource())
+        .also { it.backCamera = store.backCamera }
 
     var consented by mutableStateOf(store.consented)
         private set
     var dark by mutableStateOf(store.dark)
         private set
     var theme by mutableStateOf(store.theme)
+        private set
+    var backCamera by mutableStateOf(store.backCamera)
+        private set
+    var flipPreview by mutableStateOf(store.flipPreview)
         private set
     var evenings by mutableStateOf(store.load())
         private set
@@ -75,6 +80,17 @@ class NidraController(context: Context) {
         dark = darkLook
     }
 
+    fun chooseCamera(back: Boolean) {
+        store.backCamera = back
+        backCamera = back
+        source.backCamera = back
+    }
+
+    fun chooseFlip(flip: Boolean) {
+        store.flipPreview = flip
+        flipPreview = flip
+    }
+
     fun chooseTheme(choice: ArtTheme) {
         store.theme = choice
         theme = choice
@@ -118,6 +134,8 @@ class NidraController(context: Context) {
         consented = false
         dark = true
         theme = ArtTheme.Moonlight
+        chooseCamera(false)
+        chooseFlip(false)
         evenings = emptyList()
     }
 

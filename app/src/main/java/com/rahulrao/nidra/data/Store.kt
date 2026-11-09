@@ -39,6 +39,14 @@ class Store(context: Context) {
         get() = prefs.getBoolean("dark", true)
         set(value) = prefs.edit().putBoolean("dark", value).apply()
 
+    var backCamera: Boolean
+        get() = prefs.getBoolean("backCamera", false)
+        set(value) = prefs.edit().putBoolean("backCamera", value).apply()
+
+    var flipPreview: Boolean
+        get() = prefs.getBoolean("flipPreview", false)
+        set(value) = prefs.edit().putBoolean("flipPreview", value).apply()
+
     var theme: ArtTheme
         get() = runCatching { ArtTheme.valueOf(prefs.getString("theme", null) ?: "") }
             .getOrDefault(ArtTheme.Moonlight)

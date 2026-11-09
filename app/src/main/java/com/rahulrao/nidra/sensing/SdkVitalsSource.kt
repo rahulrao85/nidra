@@ -35,7 +35,6 @@ class SdkVitalsSource : VitalsSource {
             config.apiKey = BuildConfig.PRESAGE_API_KEY
             config.imageOutputEnabled = false
             config.enableTelemetry = false
-            useCamera(CameraSelection.Front)
             config.requestedMetrics = SmartSpectraConfig.cardioMetrics +
                 listOf(MetricType.BLINKING, MetricType.FACE_LANDMARKS)
             bind(this)
@@ -91,6 +90,8 @@ class SdkVitalsSource : VitalsSource {
         }
     }
 
+    override var backCamera = false
+
     override fun attachPreview(view: PreviewView) {
         sdk.config.previewSurfaceProvider = view.surfaceProvider
     }
@@ -101,6 +102,8 @@ class SdkVitalsSource : VitalsSource {
         blinks = 0
         blinkOn = false
         state.value = LiveSample()
+        // The camera can only be chosen while the SDK is stopped, so pick it at every start.
+        sdk.useCamera(if (backCamera) CameraSelection.Back else CameraSelection.Front)
         sdk.start()
     }
 

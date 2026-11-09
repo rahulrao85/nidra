@@ -378,6 +378,17 @@ fun SettingsScreen(app: NidraController, nowSeconds: () -> Long, onBack: () -> U
             Choice("Dark", app.dark, Modifier.weight(1f)) { app.setLook(true) }
             Choice("Light", !app.dark, Modifier.weight(1f)) { app.setLook(false) }
         }
+        Body("Camera")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice("Front", !app.backCamera, Modifier.weight(1f)) { app.chooseCamera(false) }
+            Choice("Back", app.backCamera, Modifier.weight(1f)) { app.chooseCamera(true) }
+        }
+        if (app.backCamera) Muted("The screen faces away from you, so listen for the start and end tones.")
+        Body("Phone on the stand")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice("Upright", !app.flipPreview, Modifier.weight(1f)) { app.chooseFlip(false) }
+            Choice("Upside down", app.flipPreview, Modifier.weight(1f)) { app.chooseFlip(true) }
+        }
         Body("Sample data")
         Muted("Adds a labelled week of invented nights so you can see the history. Samples are never used in your baseline.")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
