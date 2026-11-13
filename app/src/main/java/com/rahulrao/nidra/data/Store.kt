@@ -26,7 +26,7 @@ data class Evening(
 
 enum class ArtTheme(val label: String) { Moonlight("Moonlight"), Diya("Diya"), Plain("Plain") }
 
-/** Everything Nidra keeps. It lives in this app's private storage and is never uploaded. */
+/** Everything Nidra keeps. It lives in this app's private storage; Nidra itself never uploads it. */
 class Store(context: Context) {
     private val file = File(context.filesDir, "evenings.json")
     private val prefs = context.getSharedPreferences("nidra", Context.MODE_PRIVATE)

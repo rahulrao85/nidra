@@ -51,17 +51,18 @@ const val WELLNESS_NOTE = "A wellness estimate only. Not a medical device."
 fun ConsentScreen(onAgree: () -> Unit) {
     Page {
         Title("Before your first check")
-        Body("Nidra uses your front camera for 75 seconds to read your pulse and heart rate variability, then gives you a sleep readiness estimate.")
+        Body("Nidra uses your phone's camera for 75–90 seconds to read your pulse and heart rate variability, then gives you a sleep readiness estimate.")
         Card {
             Body("What happens to your data")
-            Muted("Readings are worked out on this phone. Nothing is recorded: no video, no photos.")
-            Muted("Only summary numbers and any list you write are saved, in this app's private storage, until you delete them.")
-            Muted("Nidra has no account and sends your readings nowhere.")
-            Muted("The Presage SDK contacts its server only to check the app's key. Its usage reporting is switched off.")
+            Muted("Nidra has no account, analytics or server of its own. No video or photos are kept, and the SDK's image output is off.")
+            Muted("Saved only on this phone, until you delete them or uninstall: pulse, HRV, stress index, confidence, eyes-closed %, blinks, score, morning ratings and any list you write.")
+            Muted("The Presage SDK contacts Presage to check the app's key and record usage. Optional telemetry is off.")
+            Muted("Presage says some vital metrics may be sent to its AI insights service. Nidra doesn't request, use or show them. Until we verify this, treat your pulse and HRV as possibly shared.")
         }
         Card {
             Body("What it is not")
             Muted("Nidra is not a medical device. It doesn't diagnose or treat anything, and it shouldn't guide any health decision.")
+            Muted("Sleep readiness is an experimental comparison with your own past evenings, not a probability or a forecast of your sleep.")
         }
         Muted("The camera runs only during a check, and only after you press start. Delete everything at any time in Settings.")
         Spacer(Modifier.weight(1f))
@@ -104,7 +105,7 @@ fun HomeScreen(
             PrimaryButton("Rate this morning") { onMorning(pendingMorning) }
             QuietButton("Start a new check", onClick = onCheck)
         } else {
-            PrimaryButton("Start 75-second check", onClick = onCheck)
+            PrimaryButton("Start check (75–90 seconds)", onClick = onCheck)
         }
         Muted("Do this in room light, before the lights go down. Put the phone on a stand and sit still.", Modifier.fillMaxWidth(), TextAlign.Center)
         Spacer(Modifier.weight(1f))
@@ -397,7 +398,8 @@ fun SettingsScreen(app: NidraController, nowSeconds: () -> Long, onBack: () -> U
         }
         Card {
             Body("Your data")
-            Muted("Saved only on this phone: evening summary numbers, morning ratings, and your to-do list. No video, photos or face images. Readings aren't uploaded, and the SDK's usage reporting is off.")
+            Muted("Saved only on this phone, until you delete it or uninstall: evening summary numbers, morning ratings and your to-do list. No video, photos or face images.")
+            Muted("The Presage SDK contacts Presage to check the app's key and record usage. Optional telemetry is off. Presage says some vital metrics may be sent to its AI insights service; Nidra doesn't request, use or show them. Until we verify this, treat your pulse and HRV as possibly shared.")
         }
         QuietButton(
             if (confirm == 0) "Delete all my data" else "Tap again to delete everything",

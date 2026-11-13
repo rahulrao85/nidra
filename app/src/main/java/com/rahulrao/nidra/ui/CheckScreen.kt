@@ -62,7 +62,7 @@ private const val FRAMING_SECONDS = 3
 private val GOOD_VIEW = setOf("OK", "FACE_NOT_FORWARD")
 
 /**
- * The 75-second camera check. It shows the camera for a few seconds so you can frame yourself,
+ * The camera check: at least 75 seconds, up to 90 while it waits for HRV. It shows the camera for a few seconds so you can frame yourself,
  * plays a tone, and you close your eyes until the second tone.
  */
 @Composable
