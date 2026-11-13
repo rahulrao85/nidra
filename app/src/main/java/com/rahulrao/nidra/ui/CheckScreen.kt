@@ -59,6 +59,8 @@ private const val FRAMING_SECONDS = 3
  * eyes are closed (10-Nov-2026: 61 of 75 s with pulse confidence 100 and HRV 95), and eyes closed
  * is the whole point of the check. Pulse and HRV confidence still have to pass on their own.
  */
+private val TURN_NAMES = listOf("upright", "sideways", "upside down", "sideways, other way")
+
 private val GOOD_VIEW = setOf("OK", "FACE_NOT_FORWARD")
 
 /**
@@ -103,8 +105,12 @@ fun CheckScreen(
     }
 
     val shouldRun = started
-    LaunchedEffect(shouldRun) {
+    // Switching camera or turning the screen restarts the check from zero.
+    LaunchedEffect(shouldRun, app.backCamera, app.turn) {
         if (!shouldRun) return@LaunchedEffect
+        seconds = 0
+        app.source.stop()
+        delay(400)
         val failure = runCatching { app.source.start() }.exceptionOrNull()
         if (failure != null) {
             playErrorTone(context)
@@ -217,6 +223,19 @@ fun CheckScreen(
                     },
                 )
             }
+        }
+
+        if (app.source.usesCamera) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Choice("Front", !app.backCamera, Modifier.weight(1f)) { if (app.backCamera) app.chooseCamera(false) }
+                Choice("Back", app.backCamera, Modifier.weight(1f)) { if (!app.backCamera) app.chooseCamera(true) }
+                Choice("Rotate", false, Modifier.weight(1f)) { app.rotate() }
+            }
+            Muted(
+                "Screen: ${TURN_NAMES[app.turn]}. Changing the camera or turning the screen starts the check again.",
+                Modifier.fillMaxWidth(),
+                TextAlign.Center,
+            )
         }
 
         ReadinessArt(app.theme, percent, scale = if (app.source.usesCamera) 0.7f else 1f)

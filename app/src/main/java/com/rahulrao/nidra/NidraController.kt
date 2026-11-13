@@ -35,6 +35,8 @@ class NidraController(context: Context) {
         private set
     var flipPreview by mutableStateOf(store.flipPreview)
         private set
+    var turn by mutableIntStateOf(store.turn)
+        private set
     var evenings by mutableStateOf(store.load())
         private set
 
@@ -84,6 +86,12 @@ class NidraController(context: Context) {
         store.backCamera = back
         backCamera = back
         source.backCamera = back
+    }
+
+    /** Turns the screen a quarter at a time, so the camera matches how the phone is held. */
+    fun rotate() {
+        turn = (turn + 1) % 4
+        store.turn = turn
     }
 
     fun chooseFlip(flip: Boolean) {
