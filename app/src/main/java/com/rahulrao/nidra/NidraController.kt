@@ -88,7 +88,7 @@ class NidraController(context: Context) {
         source.backCamera = back
     }
 
-    /** Turns the screen a quarter at a time, so the camera matches how the phone is held. */
+    /** Turns the camera picture a quarter at a time, so it looks upright however the phone is held. */
     fun rotate() {
         turn = (turn + 1) % 4
         store.turn = turn

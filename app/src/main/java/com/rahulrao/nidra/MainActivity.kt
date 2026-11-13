@@ -1,6 +1,5 @@
 package com.rahulrao.nidra
 
-import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -10,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,7 +60,6 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose { }
             }
-            LaunchedEffect(app.turn) { requestedOrientation = ORIENTATIONS[app.turn] }
             NidraTheme(dark = dark) { NidraApp(app) }
         }
     }
@@ -72,14 +69,6 @@ class MainActivity : ComponentActivity() {
         app.onPaused()
     }
 }
-
-/** Matches NidraController.turn: upright, sideways, upside down, sideways the other way. */
-private val ORIENTATIONS = intArrayOf(
-    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
-    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
-    ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT,
-    ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
-)
 
 private fun nowSeconds() = System.currentTimeMillis() / 1000
 

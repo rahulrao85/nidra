@@ -43,7 +43,7 @@ class Store(context: Context) {
         get() = prefs.getBoolean("backCamera", false)
         set(value) = prefs.edit().putBoolean("backCamera", value).apply()
 
-    /** Screen turn, 0..3: upright, sideways, upside down, sideways the other way. */
+    /** Camera picture turn in quarter steps, 0..3. */
     var turn: Int
         get() = prefs.getInt("turn", 0)
         set(value) = prefs.edit().putInt("turn", value).apply()

@@ -59,7 +59,7 @@ private const val FRAMING_SECONDS = 3
  * eyes are closed (10-Nov-2026: 61 of 75 s with pulse confidence 100 and HRV 95), and eyes closed
  * is the whole point of the check. Pulse and HRV confidence still have to pass on their own.
  */
-private val TURN_NAMES = listOf("upright", "sideways", "upside down", "sideways, other way")
+private val TURN_NAMES = listOf("0°", "90°", "180°", "270°")
 
 private val GOOD_VIEW = setOf("OK", "FACE_NOT_FORWARD")
 
@@ -105,8 +105,8 @@ fun CheckScreen(
     }
 
     val shouldRun = started
-    // Switching camera or turning the screen restarts the check from zero.
-    LaunchedEffect(shouldRun, app.backCamera, app.turn) {
+    // Switching camera restarts the check from zero. Rotate only turns the picture, so the check carries on.
+    LaunchedEffect(shouldRun, app.backCamera) {
         if (!shouldRun) return@LaunchedEffect
         seconds = 0
         app.source.stop()
@@ -212,7 +212,7 @@ fun CheckScreen(
             ) {
                 AndroidView(
                     // Turns the preview the right way up when the phone stands upside down.
-                    modifier = Modifier.size(150.dp).graphicsLayer { rotationZ = if (app.flipPreview) 180f else 0f },
+                    modifier = Modifier.size(150.dp).graphicsLayer { rotationZ = ((app.turn * 90 + if (app.flipPreview) 180 else 0) % 360).toFloat() },
                     factory = { ctx ->
                         PreviewView(ctx).apply {
                             scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -229,10 +229,10 @@ fun CheckScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Choice("Front", !app.backCamera, Modifier.weight(1f)) { if (app.backCamera) app.chooseCamera(false) }
                 Choice("Back", app.backCamera, Modifier.weight(1f)) { if (!app.backCamera) app.chooseCamera(true) }
-                Choice("Rotate", false, Modifier.weight(1f)) { app.rotate() }
+                Choice("Rotate ↻", false, Modifier.weight(1f)) { app.rotate() }
             }
             Muted(
-                "Screen: ${TURN_NAMES[app.turn]}. Changing the camera or turning the screen starts the check again.",
+                "Picture turned ${TURN_NAMES[app.turn]}. Switching camera starts the check again.",
                 Modifier.fillMaxWidth(),
                 TextAlign.Center,
             )
